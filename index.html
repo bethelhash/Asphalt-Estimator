@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asphalt Tonnage Calculator | Free Instant Estimates for Construction</title>
+    <title>Industrial Asphalt Calculator Pro - Truck Load Optimization & Logistics Planning</title>
     
     <!-- PRIMARY SEO TAGS FOR #1 RANKING -->
-    <meta name="title" content="Asphalt Tonnage Calculator | Free Instant Estimates for Construction" />
-    <meta name="description" content="Professional asphalt tonnage calculator. Instantly calculate asphalt requirements, truck loads, and project costs. Free, accurate, and used by 10,000+ construction professionals worldwide." />
-    <meta name="keywords" content="asphalt calculator, tonnage calculator, truck load estimator, asphalt tonnage calculator, construction calculator, asphalt estimator, how much asphalt do i need, asphalt weight calculator" />
+    <meta name="title" content="Industrial Asphalt Calculator Pro - Truck Load Optimization & Logistics Planning" />
+    <meta name="description" content="Advanced asphalt tonnage calculator for industrial construction projects. Optimize truck loads, calculate precise material requirements, estimate transportation costs with real-time routing, and generate detailed logistics reports. Compliant with industry standards for contractors, engineers, and asphalt suppliers." />
+    <meta name="keywords" content="industrial asphalt calculator, truck load optimization, asphalt logistics planning, construction material estimator, transportation cost calculator, asphalt delivery routing, bulk material logistics, construction industry standards, truck capacity planning, asphalt tonnage estimator, logistics optimization software, construction project management tools" />
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://asphalt-calculator.app/" />
@@ -58,9 +58,6 @@
     <!-- Leaflet.js for mapping -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- Leaflet Routing Machine for route calculations -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <!-- Leaflet Control Geocoder for address search -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>
@@ -1908,7 +1905,9 @@
         }
         
         // Initialize the application when the page loads
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initMap, 300);
+        });
         
         // Global variables for new features
         let map = null;
@@ -1917,34 +1916,98 @@
         
         // Initialize mapping functionality
         function initMap() {
-            // Create map instance
-            map = L.map('map').setView([39.8283, -98.5795], 4); // Default to US center
+            console.log('Map V8 initializing...');
+            const mapContainer = document.getElementById('map');
             
-            // Add tile layer (OpenStreetMap)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-            
-            // Add geocoder control for address search
-            L.Control.geocoder().addTo(map);
-            
-            // Add event listeners for map buttons
-            document.getElementById('calculateDistanceBtn').addEventListener('click', calculateRoute);
-            document.getElementById('optimizeRouteBtn').addEventListener('click', optimizeRoute);
-            document.getElementById('resetMapBtn').addEventListener('click', resetMap);
-            
-            // Add map control buttons
-            document.getElementById('zoomInBtn').addEventListener('click', () => map.zoomIn());
-            document.getElementById('zoomOutBtn').addEventListener('click', () => map.zoomOut());
-            document.getElementById('toggleFullscreenBtn').addEventListener('click', toggleMapFullscreen);
-            
-            // Add geolocation buttons
-            document.getElementById('geolocateStartBtn').addEventListener('click', () => geolocatePosition('start'));
-            document.getElementById('geolocateEndBtn').addEventListener('click', () => geolocatePosition('end'));
-            
-            // Add optimization buttons
-            document.getElementById('acceptOptimizationBtn').addEventListener('click', acceptOptimizedRoute);
-            document.getElementById('rejectOptimizationBtn').addEventListener('click', rejectOptimizedRoute);
+            if (!mapContainer) {
+                console.error('Map container #map missing');
+                showMapError('Map container not found');
+                return;
+            }
+
+            // Clean up existing map instance
+            if (map) {
+                map.remove();
+                map = null;
+            }
+            mapContainer.innerHTML = '';
+
+            try {
+                // Create new map instance
+                map = L.map('map', {
+                    zoomControl: false,
+                    attributionControl: true
+                }).setView([39.8283, -98.5795], 4);
+
+                // TILE LAYERS WITH FALLBACK (YOUR MAPTILER KEY INCLUDED)
+                const tileLayers = [
+                    // Primary: OpenStreetMap
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap contributors',
+                        maxZoom: 19,
+                        timeout: 10000
+                    }),
+                    // FALLBACK 1: MAPTILER (YOUR API KEY)
+                    L.tileLayer('https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=8oYDb2KTpnFEjaP4KZ1x', {
+                        attribution: '&copy; MapTiler & OpenStreetMap contributors',
+                        maxZoom: 19
+                    }),
+                    // FALLBACK 2: Carto
+                    L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+                        attribution: '&copy; Carto & OSM contributors',
+                        maxZoom: 19
+                    })
+                ];
+
+                // Auto-fallback on tile load failure
+                let activeLayer = tileLayers[0];
+                activeLayer.addTo(map);
+                
+                activeLayer.on('tileerror', () => {
+                    console.warn('Primary map tiles failed → switching to MapTiler');
+                    map.removeLayer(activeLayer);
+                    activeLayer = tileLayers[1];
+                    activeLayer.addTo(map);
+                });
+
+                // Add zoom controls
+                L.control.zoom({ position: 'topright' }).addTo(map);
+
+                // Bind all map buttons (ONCE ONLY - no duplicates)
+                document.getElementById('calculateDistanceBtn').onclick = calculateRoute;
+                document.getElementById('resetMapBtn').onclick = resetMap;
+                document.getElementById('zoomInBtn').onclick = () => map.zoomIn();
+                document.getElementById('zoomOutBtn').onclick = () => map.zoomOut();
+                document.getElementById('toggleFullscreenBtn').onclick = toggleMapFullscreen;
+                document.getElementById('geolocateStartBtn').onclick = () => geolocatePosition('start');
+                document.getElementById('geolocateEndBtn').onclick = () => geolocatePosition('end');
+                document.getElementById('optimizeRouteBtn').onclick = optimizeRoute;
+                document.getElementById('acceptOptimizationBtn').onclick = acceptOptimizedRoute;
+                document.getElementById('rejectOptimizationBtn').onclick = rejectOptimizedRoute;
+
+                console.log('✅ Map V8 loaded successfully');
+            } catch (err) {
+                console.error('❌ Map init failed:', err);
+                showMapError(`Failed to load map: ${err.message}`);
+            }
+        }
+        
+        // Show user-friendly map error
+        function showMapError(message) {
+            const mapContainer = document.getElementById('map');
+            if (mapContainer) {
+                mapContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-center p-4 bg-gray-100 rounded-lg">
+                        <i class="fa fa-map-o text-4xl text-gray-400 mb-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Map Loading Error</h3>
+                        <p class="text-gray-600 mb-4">${message}</p>
+                        <button onclick="initMap()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fa fa-refresh mr-2"></i>Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
         }
         
         // Global variables for routing
@@ -1972,76 +2035,59 @@
             document.getElementById('timeResult').textContent = 'Calculating...';
             document.getElementById('distanceCostResult').textContent = 'Calculating...';
             
-            try {
-                // Use Leaflet Routing Machine to calculate route
-                currentRoute = L.Routing.control({
-                    waypoints: [
-                        L.latLng(40.7128, -74.0060), // Default start (will be geocoded)
-                        L.latLng(34.0522, -118.2437)  // Default end (will be geocoded)
-                    ],
-                    routeWhileDragging: true,
-                    showAlternatives: true,
-                    lineOptions: {
-                        styles: [{
-                            color: '#0F52BA',
-                            weight: 6,
-                            opacity: 0.8
-                        }]
-                    },
-                    createMarker: function(i, waypoint, n) {
-                        const marker = L.marker(waypoint.latLng, {
-                            draggable: true,
-                            icon: L.divIcon({
-                                className: 'custom-marker',
-                                html: `<div class="bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center">${i + 1}</div>`,
-                                iconSize: [24, 24],
-                                iconAnchor: [12, 12]
-                            })
-                        });
-                        
-                        if (i === 0) {
-                            startMarker = marker;
-                        } else {
-                            endMarker = marker;
-                        }
-                        
-                        return marker;
-                    }
-                }).addTo(map);
-                
-                // Handle route calculation completion
-                currentRoute.on('routesfound', function(e) {
-                    const routes = e.routes;
-                    const bestRoute = routes[0];
+            // Use simple geocoding with OpenStreetMap Nominatim
+            const geocodeUrl = 'https://nominatim.openstreetmap.org/search';
+            
+            Promise.all([
+                fetch(`${geocodeUrl}?q=${encodeURIComponent(startLocation)}&format=json&limit=1`)
+                    .then(response => response.json()),
+                fetch(`${geocodeUrl}?q=${encodeURIComponent(endLocation)}&format=json&limit=1`)
+                    .then(response => response.json())
+            ]).then(([startData, endData]) => {
+                if (startData.length > 0 && endData.length > 0) {
+                    const startCoords = [parseFloat(startData[0].lat), parseFloat(startData[0].lon)];
+                    const endCoords = [parseFloat(endData[0].lat), parseFloat(endData[0].lon)];
+                    
+                    // Add markers
+                    startMarker = L.marker(startCoords).addTo(map);
+                    endMarker = L.marker(endCoords).addTo(map);
+                    
+                    // Draw route line
+                    currentRoute = L.polyline([startCoords, endCoords], {
+                        color: '#0F52BA',
+                        weight: 6,
+                        opacity: 0.8
+                    }).addTo(map);
+                    
+                    // Fit map to show both markers
+                    const bounds = L.latLngBounds([startCoords, endCoords]);
+                    map.fitBounds(bounds, {padding: [50, 50]});
+                    
+                    // Calculate distance using Leaflet's distanceTo method
+                    const distanceInMeters = L.latLng(startCoords).distanceTo(L.latLng(endCoords));
+                    const distanceInMiles = distanceInMeters * 0.000621371; // Convert meters to miles
+                    
+                    // Estimate travel time (assuming 45 mph average speed)
+                    const estimatedTimeInMinutes = (distanceInMiles / 45) * 60;
                     
                     // Store route data
                     currentRouteData = {
-                        distance: bestRoute.summary.totalDistance / 1609.34, // Convert meters to miles
-                        time: bestRoute.summary.totalTime / 60, // Convert seconds to minutes
-                        coordinates: bestRoute.coordinates
+                        distance: distanceInMiles,
+                        time: estimatedTimeInMinutes,
+                        coordinates: [startCoords, endCoords]
                     };
                     
                     // Update results
                     updateRouteResults(currentRouteData);
                     
-                    // Hide optimization results if visible
-                    document.getElementById('routeOptimizationResults').classList.add('hidden');
-                });
-                
-                // Handle geocoding errors
-                currentRoute.on('error', function(e) {
-                    console.error('Routing error:', e);
-                    document.getElementById('distanceResult').textContent = 'Error';
-                    document.getElementById('timeResult').textContent = 'Error';
-                    document.getElementById('distanceCostResult').textContent = 'Error';
-                    alert('Error calculating route. Please try different locations.');
-                });
-                
-            } catch (error) {
-                console.error('Route calculation error:', error);
-                // Fallback to simple distance calculation
-                fallbackDistanceCalculation();
-            }
+                } else {
+                    throw new Error('Could not find coordinates for one or both locations');
+                }
+            }).catch(error => {
+                console.error('Geocoding error:', error);
+                // Use fallback coordinates
+                fallbackDistanceCalculation(startLocation, endLocation);
+            });
         }
         
         // Fallback distance calculation when routing API fails
@@ -2302,18 +2348,9 @@
         
         // Reset map to default view
         function resetMap() {
-            if (map) {
-                map.setView([39.8283, -98.5795], 4);
-                
-                // Clear markers and route
-                map.eachLayer(layer => {
-                    if (layer instanceof L.Marker || layer instanceof L.Polyline) {
-                        map.removeLayer(layer);
-                    }
-                });
-                
-                // Reset input fields and results
-                document.getElementById('startLocation').value = '';
+            if (!map) return;
+            clearRoute();
+            document.getElementById('startLocation').value = '';
                 document.getElementById('endLocation').value = '';
                 document.getElementById('distanceResult').textContent = '-';
                 document.getElementById('timeResult').textContent = '-';
@@ -2781,50 +2818,106 @@
         // Calculate transportation costs based on user inputs
         function calculateTransportationCosts() {
             const includeTransport = document.getElementById('includeTransportCosts').checked;
-            const fuelPrice = parseFloat(document.getElementById('fuelPrice').value) || 0;
-            const fuelEfficiency = parseFloat(document.getElementById('fuelEfficiency').value) || 1;
+            const fuelPrice = parseFloat(document.getElementById('fuelPrice').value) || 3.85;
+            const fuelEfficiency = parseFloat(document.getElementById('fuelEfficiency').value) || 6;
             const tollCost = parseFloat(document.getElementById('tollCost').value) || 0;
             const otherCosts = parseFloat(document.getElementById('otherTransportCosts').value) || 0;
             
-            // Get distance from map calculation
-            const distanceText = document.getElementById('distanceResult').textContent;
-            const distanceMatch = distanceText.match(/([\d.]+)\s+miles/);
-            const distance = distanceMatch ? parseFloat(distanceMatch[1]) : 0;
+            // Get total weight
+            const totalWeightText = resultTotalWeight.textContent;
+            const totalWeightTons = parseFloat(totalWeightText);
             
-            // Calculate fuel cost
-            const fuelCost = distance > 0 ? (distance * 2 / fuelEfficiency) * fuelPrice : 0;
-            
-            // Calculate total transport cost per trip
-            const totalTransportCostPerTrip = fuelCost + tollCost + otherCosts;
+            if (isNaN(totalWeightTons) || totalWeightTons <= 0) {
+                return 0;
+            }
             
             // Get number of trucks needed
             const totalTrucksText = document.getElementById('resultTotalTrucks').textContent;
             const totalTrucks = parseInt(totalTrucksText) || 0;
             
-            // Calculate total transport cost
-            const totalTransportCost = totalTransportCostPerTrip * totalTrucks;
+            let totalTransportCost = 0;
+            
+            if (includeTransport) {
+                // Try to get distance from map calculation first
+                let distance = 0;
+                
+                if (currentRouteData) {
+                    distance = currentRouteData.distance;
+                } else {
+                    // Fallback to distance from display
+                    const distanceText = document.getElementById('distanceResult').textContent;
+                    const distanceMatch = distanceText.match(/([\d.]+)\s+miles/);
+                    distance = distanceMatch ? parseFloat(distanceMatch[1]) : 0;
+                }
+                
+                if (distance > 0) {
+                    // Calculate round trip distance
+                    const roundTripDistance = distance * 2;
+                    
+                    // Calculate fuel cost per truck
+                    const fuelCostPerTruck = (roundTripDistance / fuelEfficiency) * fuelPrice;
+                    
+                    // Calculate total transport cost
+                    totalTransportCost = (fuelCostPerTruck * totalTrucks) + tollCost + otherCosts;
+                } else {
+                    // Fallback to per-ton calculation if no distance available
+                    const truckingCostPerTon = parseFloat(truckingCost.value) || 25;
+                    totalTransportCost = totalWeightTons * truckingCostPerTon;
+                }
+            } else {
+                // Use per-ton calculation from trucking cost input
+                const truckingCostPerTon = parseFloat(truckingCost.value) || 25;
+                totalTransportCost = totalWeightTons * truckingCostPerTon;
+            }
             
             // Update distance cost result display
-            document.getElementById('distanceCostResult').textContent = `$${totalTransportCost.toFixed(2)}`;
+            document.getElementById('distanceCostResult').textContent = `${currencySymbol.textContent}${totalTransportCost.toFixed(2)}`;
             
             // Update the transportation cost in the cost estimation section
-            if (includeTransport) {
-                document.getElementById('resultTransportCost').textContent = `$${totalTransportCost.toFixed(2)}`;
-                // Recalculate total cost
-                updateTotalCost();
-            }
+            document.getElementById('resultTransportCost').textContent = `${currencySymbol.textContent}${totalTransportCost.toFixed(2)}`;
+            
+            // Recalculate total cost to include/exclude transport costs
+            updateTotalCost();
             
             return totalTransportCost;
         }
         
         // Update total cost calculation
         function updateTotalCost() {
-            const materialCost = parseFloat(document.getElementById('resultMaterialCost').textContent.replace('$', '')) || 0;
-            const transportCost = parseFloat(document.getElementById('resultTransportCost').textContent.replace('$', '')) || 0;
-            const laborCost = parseFloat(document.getElementById('resultLaborCost').textContent.replace('$', '')) || 0;
+            // Extract costs without currency symbol
+            const materialCostText = document.getElementById('resultMaterialCost').textContent;
+            const transportCostText = document.getElementById('resultTransportCost').textContent;
+            const laborCostText = document.getElementById('resultLaborCost').textContent;
             
-            const totalCost = materialCost + transportCost + laborCost;
-            document.getElementById('resultTotalCost').textContent = `$${totalCost.toFixed(2)}`;
+            // Remove currency symbol and parse
+            const materialCost = parseFloat(materialCostText.replace(/[^0-9.-]+/g, '')) || 0;
+            const transportCost = parseFloat(transportCostText.replace(/[^0-9.-]+/g, '')) || 0;
+            const laborCost = parseFloat(laborCostText.replace(/[^0-9.-]+/g, '')) || 0;
+            
+            // Check if transport costs should be included
+            const includeTransport = document.getElementById('includeTransportCosts').checked;
+            
+            // Calculate total cost based on toggle
+            let totalCost = materialCost + laborCost;
+            if (includeTransport) {
+                totalCost += transportCost;
+            }
+            
+            // Update total cost display
+            document.getElementById('resultTotalCost').textContent = `${currencySymbol.textContent}${totalCost.toFixed(2)}`;
+            
+            // Update cost breakdown visibility
+            const transportCostRow = document.querySelector('.transport-cost-row');
+            if (transportCostRow) {
+                transportCostRow.style.display = includeTransport ? '' : 'none';
+            }
+            
+            // Update UI to reflect transport cost inclusion status
+            const transportCostLabel = document.querySelector('label[for="includeTransportCosts"]');
+            if (transportCostLabel) {
+                transportCostLabel.classList.toggle('text-gray-500', !includeTransport);
+                transportCostLabel.classList.toggle('font-medium', includeTransport);
+            }
         }
         
         // Handle lead form submission
