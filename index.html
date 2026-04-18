@@ -43,7 +43,7 @@
       "@context": "https://schema.org",
       "@type": "FAQPage",
       "mainEntity": [
-        {"@type": "Question", "name": "How do I calculate asphalt tonnage?", "acceptedAnswer": {"@type": "Answer", "text": "Multiply length × width × thickness × density, then divide by 2000. Our calculator automates this."}},
+        {"@type": "Question", "name": "How do I calculate asphalt tonnage?", "acceptedAnswer": {"@type": "Answer", "text": "Multiply length x width x thickness x density, then divide by 2000. Our calculator automates this."}},
         {"@type": "Question", "name": "What is loose vs compacted asphalt?", "acceptedAnswer": {"@type": "Answer", "text": "Loose is freshly laid. Compacted is after rolling, which increases density by 20-30%."}},
         {"@type": "Question", "name": "How many trucks do I need?", "acceptedAnswer": {"@type": "Answer", "text": "Divide total tonnage by truck capacity and round up. Our calculator does this automatically."}}
       ]
@@ -1408,6 +1408,9 @@
             // Populate truck models
             updateTruckModels();
             
+            // Initialize map functionality
+            initMap();
+            
             // Set up event listeners
             regionSelector.addEventListener('change', (e) => setRegion(e.target.value));
             toggleUnitsBtn.addEventListener('click', toggleUnits);
@@ -1905,9 +1908,7 @@
         }
         
         // Initialize the application when the page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initMap, 300);
-        });
+        document.addEventListener('DOMContentLoaded', init);
         
         // Global variables for new features
         let map = null;
@@ -2007,6 +2008,144 @@
                     </div>
                 `;
             }
+        }
+        
+        // Route calculation functions
+        let startMarker, endMarker;
+        let currentRoute;
+        let currentRouteData = null;
+        
+        function calculateRoute() {
+            const start = document.getElementById('startLocation').value.trim();
+            const end = document.getElementById('endLocation').value.trim();
+            
+            if (!start || !end) {
+                alert('Please enter both start and end locations');
+                return;
+            }
+            
+            clearRoute();
+            document.getElementById('distanceResult').textContent = 'Loading...';
+            document.getElementById('timeResult').textContent = 'Loading...';
+            document.getElementById('distanceCostResult').textContent = 'Loading...';
+            
+            const geoUrl = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=';
+            
+            Promise.all([
+                fetch(geoUrl + encodeURIComponent(start)).then(res => res.json()),
+                fetch(geoUrl + encodeURIComponent(end)).then(res => res.json())
+            ])
+            .then(([startData, endData]) => {
+                if (!startData.length || !endData.length) {
+                    throw new Error('Location not found');
+                }
+                
+                const startCoords = [parseFloat(startData[0].lat), parseFloat(startData[0].lon)];
+                const endCoords = [parseFloat(endData[0].lat), parseFloat(endData[0].lon)];
+                
+                // Add markers
+                startMarker = L.marker(startCoords).addTo(map).bindPopup(`Start: ${start}`);
+                endMarker = L.marker(endCoords).addTo(map).bindPopup(`End: ${end}`);
+                
+                // Draw route line
+                currentRoute = L.polyline([startCoords, endCoords], {
+                    color: '#0F52BA',
+                    weight: 6,
+                    opacity: 0.85
+                }).addTo(map);
+                
+                map.fitBounds([startCoords, endCoords], { padding: [50, 50] });
+                
+                // Calculate distance & time
+                const distanceMeters = L.latLng(startCoords).distanceTo(L.latLng(endCoords));
+                const distanceMiles = distanceMeters * 0.000621371;
+                const travelTimeMinutes = (distanceMiles / 45) * 60;
+                
+                currentRouteData = {
+                    distance: distanceMiles,
+                    time: travelTimeMinutes,
+                    coords: [startCoords, endCoords]
+                };
+                
+                updateRouteResults(currentRouteData);
+            })
+            .catch(err => {
+                console.error('Route error:', err);
+                document.getElementById('distanceResult').textContent = 'Error';
+                document.getElementById('timeResult').textContent = 'Error';
+                document.getElementById('distanceCostResult').textContent = 'Error';
+                alert('Could not find one or both locations. Please try again.');
+            });
+        }
+        
+        function clearRoute() {
+            if (startMarker) map.removeLayer(startMarker);
+            if (endMarker) map.removeLayer(endMarker);
+            if (currentRoute) map.removeLayer(currentRoute);
+            startMarker = endMarker = currentRoute = null;
+            currentRouteData = null;
+        }
+        
+        function updateRouteResults(data) {
+            document.getElementById('distanceResult').textContent = data.distance.toFixed(2) + ' mi';
+            document.getElementById('timeResult').textContent = Math.round(data.time) + ' min';
+            updateTransportCost(data.distance);
+        }
+        
+        function updateTransportCost(distance) {
+            // Basic cost calculation
+            const costPerMile = 2.5; // $2.5 per mile
+            const totalCost = distance * costPerMile;
+            document.getElementById('distanceCostResult').textContent = '$' + totalCost.toFixed(2);
+        }
+        
+        // Map control functions
+        function toggleMapFullscreen() {
+            const mapContainer = document.getElementById('map');
+            if (mapContainer.requestFullscreen) {
+                mapContainer.requestFullscreen();
+            } else if (mapContainer.mozRequestFullScreen) {
+                mapContainer.mozRequestFullScreen();
+            } else if (mapContainer.webkitRequestFullscreen) {
+                mapContainer.webkitRequestFullscreen();
+            } else if (mapContainer.msRequestFullscreen) {
+                mapContainer.msRequestFullscreen();
+            }
+        }
+        
+        function geolocatePosition(type) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    // Reverse geocode to get address
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            const address = data.display_name || `${lat}, ${lng}`;
+                            document.getElementById(type === 'start' ? 'startLocation' : 'endLocation').value = address;
+                        })
+                        .catch(() => {
+                            document.getElementById(type === 'start' ? 'startLocation' : 'endLocation').value = `${lat}, ${lng}`;
+                        });
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+        
+        function optimizeRoute() {
+            document.getElementById('routeOptimizationResults').classList.remove('hidden');
+        }
+        
+        function acceptOptimizedRoute() {
+            alert('Route optimization accepted!');
+            document.getElementById('routeOptimizationResults').classList.add('hidden');
+        }
+        
+        function rejectOptimizedRoute() {
+            document.getElementById('routeOptimizationResults').classList.add('hidden');
         }
         }
         
@@ -2203,32 +2342,7 @@
                 // Update current route data
                 currentRouteData = optimizedRoute;
                 
-                // Update results display
-                updateRouteResults(currentRouteData);
-                
-                // Update transportation costs
-                if (document.getElementById('includeTransportCosts').checked) {
-                    calculateTransportationCosts();
-                }
-                
-                // Hide optimization results
-                document.getElementById('routeOptimizationResults').classList.add('hidden');
-                
-                // Update map with new route (simplified)
-                if (currentRoute) {
-                    map.removeControl(currentRoute);
-                }
-                
-                // Draw simplified optimized route
-                const startCoords = [40.7128, -74.0060]; // Placeholder
-                const endCoords = [34.0522, -118.2437]; // Placeholder
-                const midPoint = [
-                    (startCoords[0] + endCoords[0]) / 2 + (Math.random() - 0.5) * 0.5,
-                    (startCoords[1] + endCoords[1]) / 2 + (Math.random() - 0.5) * 0.5
-                ];
-                
-                currentRoute = L.polyline([startCoords, midPoint, endCoords], {
-                    color: '#28A745',
+
                     weight: 6,
                     opacity: 0.8,
                     dashArray: '10, 10'
